@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import DashboardInner from "./DashboardInner.jsx";
+import DashboardInner from "./DashboardInner";
 
 export default function ClientDashboardPage() {
   return (
