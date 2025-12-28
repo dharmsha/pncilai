@@ -162,7 +162,7 @@ export default function AmcRequestInner() {
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition"
           >
-            Submit AMC Request
+            Submit AMCs Request
           </button>
         </form>
       </div>
