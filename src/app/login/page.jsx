@@ -1,32 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { auth } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { FaPhone, FaShieldAlt, FaWhatsapp, FaKey, FaArrowLeft, FaBolt, FaMagic } from "react-icons/fa";
+import {
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+} from "firebase/auth";
+import { FaPhone, FaShieldAlt, FaWhatsapp, FaKey, FaArrowLeft } from "react-icons/fa";
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState(null);
   const [showOtp, setShowOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [mockMode, setMockMode] = useState(false);
 
+  const recaptchaRef = useRef(null);
   const router = useRouter();
 
-  /* ===== MOCK LOGIN ===== */
-  const mockLogin = () => {
-    setMockMode(true);
-    setPhoneNumber("9999999999");
-    
-    setTimeout(() => {
-      const mockOtp = "123456";
-      setOtp(mockOtp);
-      setSuccess(`✓ Mock OTP ${mockOtp} auto-filled. Click verify to login.`);
-      setShowOtp(true);
-    }, 500);
+  /* ===== AUTH CHECK ===== */
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      if (u) router.push("/dashboard");
+    });
+  }, [router]);
+
+  /* ===== HIDDEN CAPTCHA ===== */
+  const initCaptcha = () => {
+    if (recaptchaRef.current) {
+      try {
+        recaptchaRef.current.clear();
+      } catch {}
+    }
+
+    recaptchaRef.current = new RecaptchaVerifier(
+      auth,
+      "recaptcha-container",
+      { size: "invisible" }
+    );
+
+    recaptchaRef.current.render();
   };
+
+  useEffect(() => {
+    if (!showOtp) setTimeout(initCaptcha, 700);
+  }, [showOtp]);
 
   /* ===== SEND OTP ===== */
   const sendOtp = async (e) => {
@@ -40,23 +62,18 @@ export default function LoginPage() {
       return;
     }
 
-    // Mock testing ke liye
-    if (phoneNumber === "9999999999") {
-      setMockMode(true);
-      setSuccess("✓ OTP sent successfully (Mock Mode). Use 123456 to verify.");
-      setShowOtp(true);
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Agar real Firebase use karna hai to yahan Firebase call hoga
-      // Lekin testing ke liye mock mode mein hi raho
-      setMockMode(true);
-      setSuccess("✓ OTP sent successfully (Mock Mode). Use 123456 to verify.");
+      const res = await signInWithPhoneNumber(
+        auth,
+        `+91${phoneNumber}`,  // ✅ Fixed: Added backticks
+        recaptchaRef.current
+      );
+      setConfirmationResult(res);
       setShowOtp(true);
+      setSuccess("✓ OTP sent successfully to your mobile");
     } catch (err) {
-      setError("For testing, use phone number: 9999999999 with OTP: 123456");
+      setError(err.message || "Failed to send OTP. Please try again.");
+      initCaptcha();
     } finally {
       setLoading(false);
     }
@@ -69,32 +86,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Mock authentication - Firebase use nahi karega
-      if (otp === "123456") {
-        setSuccess("✓ Authentication successful! Redirecting...");
-        
-        setTimeout(() => {
-          // Check if admin or client
-          const isAdmin = phoneNumber === "9234477961";
-          const path = isAdmin 
-            ? `/admin/dashboard?phone=${phoneNumber}&mock=true&timestamp=${Date.now()}`
-            : `/client/dashboard?phone=${phoneNumber}&mock=true&timestamp=${Date.now()}`;
-          
-          // Store mock user in localStorage for session
-          localStorage.setItem("mockUser", JSON.stringify({
-            phoneNumber: phoneNumber,
-            uid: "mock-user-" + Date.now(),
-            isAdmin: isAdmin,
-            loginTime: new Date().toISOString()
-          }));
-          
-          router.push(path);
-        }, 800);
-      } else {
-        setError("For mock testing, use OTP: 123456");
-      }
+      await confirmationResult.confirm(otp);
+      setSuccess("✓ Authentication successful! Redirecting...");
+
+      setTimeout(() => {
+        if (phoneNumber === "9234477961") {
+          router.push(`/admin/dashboard?phone=${phoneNumber}`);  // ✅ Fixed: Added backticks
+        } else {
+          router.push(`/client/dashboard?phone=${phoneNumber}`); // ✅ Fixed: Added backticks
+        }
+      }, 1200);
     } catch {
-      setError("Invalid OTP. Use 123456 for testing.");
+      setError("Invalid or expired OTP. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -125,33 +128,8 @@ export default function LoginPage() {
                 Pencil<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">AI</span>
               </h1>
               <p className="text-gray-400 mt-2 text-sm">
-                Development Mode - Mock Authentication
+                Secure authentication system
               </p>
-            </div>
-
-            {/* Testing Notice */}
-            <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-700/30 rounded-xl">
-              <p className="text-yellow-300 text-sm font-medium flex items-center">
-                <FaBolt className="mr-2" />
-                Development Mode Active
-              </p>
-              <p className="text-yellow-500/80 text-xs mt-1">
-                Using mock authentication. No Firebase required.
-              </p>
-            </div>
-
-            {/* Quick Test Button */}
-            <div className="mb-6">
-              <button
-                onClick={mockLogin}
-                className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold py-3.5 shadow-lg hover:shadow-amber-500/30 hover:scale-[1.02] transition-all duration-300 mb-4"
-              >
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-amber-700 to-orange-700 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                <span className="relative flex items-center justify-center">
-                  <FaMagic className="mr-2" />
-                  Quick Test Login (Phone: 9999999999, OTP: 123456)
-                </span>
-              </button>
             </div>
 
             {/* Alerts */}
@@ -183,23 +161,23 @@ export default function LoginPage() {
                     <input
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e) => {
-                        setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10));
-                      }}
+                      onChange={(e) =>
+                        setPhoneNumber(
+                          e.target.value.replace(/\D/g, "").slice(0, 10)
+                        )
+                      }
                       className="w-full bg-gray-800/50 border border-gray-700 rounded-xl pl-16 pr-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                       placeholder="Enter 10-digit number"
                       required
                     />
-                    {phoneNumber === "9999999999" && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded">Mock</span>
-                      </div>
-                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    For testing use: <span className="text-amber-400">9999999999</span>
+                    We'll send a 6-digit verification code
                   </p>
                 </div>
+
+                {/* hidden captcha */}
+                <div id="recaptcha-container" style={{ display: "none" }} />
 
                 <button
                   disabled={loading}
@@ -214,7 +192,7 @@ export default function LoginPage() {
                       </>
                     ) : (
                       <>
-                        Continue (Mock Mode)
+                        Continue
                         <FaKey className="ml-2" />
                       </>
                     )}
@@ -229,45 +207,18 @@ export default function LoginPage() {
                     <FaShieldAlt className="mr-2 text-gray-400" />
                     Enter Verification Code
                   </label>
-                  <div className="relative">
-                    <input
-                      value={otp}
-                      onChange={(e) => {
-                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
-                      }}
-                      className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3.5 text-center text-2xl tracking-[0.35em] text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="123456"
-                      required
-                      autoFocus
-                    />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded flex items-center">
-                        <FaMagic className="mr-1" /> Mock
-                      </span>
-                    </div>
-                  </div>
+                  <input
+                    value={otp}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3.5 text-center text-2xl tracking-[0.35em] text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="••••••"
+                    required
+                  />
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    Use OTP: <span className="text-amber-400 font-bold">123456</span> for testing
+                    Enter the 6-digit code sent to +91{phoneNumber}
                   </p>
-                </div>
-
-                {/* Quick OTP Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOtp("123456")}
-                    className="text-sm bg-amber-900/30 text-amber-300 border border-amber-800/50 rounded-xl py-2.5 hover:bg-amber-900/50 transition flex items-center justify-center"
-                  >
-                    <FaMagic className="mr-2" />
-                    Use 123456
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtp("000000")}
-                    className="text-sm bg-gray-800/30 text-gray-300 border border-gray-700/50 rounded-xl py-2.5 hover:bg-gray-800/50 transition"
-                  >
-                    Use 000000
-                  </button>
                 </div>
 
                 <button
@@ -279,7 +230,7 @@ export default function LoginPage() {
                     {loading ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                        Redirecting...
+                        Verifying...
                       </>
                     ) : (
                       "Verify & Login"
@@ -289,10 +240,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowOtp(false);
-                    setOtp("");
-                  }}
+                  onClick={() => setShowOtp(false)}
                   className="w-full flex items-center justify-center text-sm text-gray-400 hover:text-white transition-colors py-2"
                 >
                   <FaArrowLeft className="mr-2" />
@@ -301,46 +249,11 @@ export default function LoginPage() {
               </form>
             )}
 
-            {/* Dashboard Quick Access */}
-            <div className="mt-6 pt-6 border-t border-gray-800/50">
-              <p className="text-xs text-gray-500 mb-3 text-center">Quick Access Presets</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setPhoneNumber("9234477961");
-                    setMockMode(true);
-                    setTimeout(() => {
-                      setOtp("123456");
-                      setShowOtp(true);
-                      setSuccess("Admin login ready. Click verify.");
-                    }, 100);
-                  }}
-                  className="text-xs bg-purple-900/30 text-purple-300 border border-purple-800/50 rounded-lg py-2.5 hover:bg-purple-900/50 transition"
-                >
-                  Admin Login
-                </button>
-                <button
-                  onClick={() => {
-                    setPhoneNumber("9876543210");
-                    setMockMode(true);
-                    setTimeout(() => {
-                      setOtp("123456");
-                      setShowOtp(true);
-                      setSuccess("Client login ready. Click verify.");
-                    }, 100);
-                  }}
-                  className="text-xs bg-blue-900/30 text-blue-300 border border-blue-800/50 rounded-lg py-2.5 hover:bg-blue-900/50 transition"
-                >
-                  Client Login
-                </button>
-              </div>
-            </div>
-
-            {/* Support Section */}
+            {/* Support Section - Fixed at bottom */}
             <div className="mt-8 pt-6 border-t border-gray-800/50">
               <div className="text-center">
                 <p className="text-sm text-gray-500 mb-2">
-                  Firebase setup help needed?
+                  Having trouble logging in?
                 </p>
                 <a
                   href="https://wa.me/917070853444"
@@ -355,20 +268,17 @@ export default function LoginPage() {
                   </span>
                 </a>
                 <p className="text-xs text-gray-600 mt-3">
-                  Contact for Firebase setup assistance
+                  Our support team is available 24/7
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Development Note */}
-        <div className="mt-4 p-3 bg-gray-800/30 border border-gray-700/30 rounded-lg">
-          <p className="text-xs text-gray-400 text-center">
-            🔧 <strong>Development Mode:</strong> Mock authentication active. 
-            Firebase not required. Use phone: <code className="bg-gray-900 px-1 rounded">9999999999</code> with OTP: <code className="bg-gray-900 px-1 rounded">123456</code>
-          </p>
-        </div>
+        {/* Footer Note */}
+        <p className="text-center text-gray-600 text-sm mt-6">
+          © {new Date().getFullYear()} PencilAI. All rights reserved.
+        </p>
       </div>
 
       {/* Add CSS for animations */}
