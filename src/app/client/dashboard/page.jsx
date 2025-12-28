@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
-import DashboardInner from "./DashboardInner";
+import DashBoardInner from "./DashboardInner"
 
 export default function ClientDashboardPage() {
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      <DashboardInner />
+      <DashBoardInner />
     </Suspense>
   );
 }
