@@ -1,6 +1,6 @@
 // page.jsx
 "use client";
-import DashboardInner from "./DashboardInner";
+import DashboardInner from "./Dashboardinner";
 
 import { Suspense } from "react";
  // relative path should match
