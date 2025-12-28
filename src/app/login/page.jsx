@@ -33,7 +33,7 @@ export default function LoginPage() {
     return onAuthStateChanged(auth, (user) => {
       if (user) {
         const phone = user.phoneNumber?.replace("+91", "");
-        if (phone === "7070853444") {
+        if (phone === "9234477961") {
           router.push(`/admin/dashboard?phone=${phone}`);
         } else {
           router.push(`/client/dashboard?phone=${phone}`);
@@ -111,7 +111,7 @@ export default function LoginPage() {
       setSuccess("✅ Login successful");
 
       setTimeout(() => {
-        if (userPhone === "7070853444") {
+        if (userPhone === "9234477961") {
           router.push(`/admin/dashboard?phone=${userPhone}`);
         } else {
           router.push(`/client/dashboard?phone=${userPhone}`);
