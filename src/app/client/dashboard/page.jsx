@@ -1,9 +1,8 @@
-// page.jsx
 "use client";
-import DashboardInner from "./DashboardInner";
 
 import { Suspense } from "react";
- // relative path should match
+import DashboardInner from "./DashboardInner.jsx";
+
 export default function ClientDashboardPage() {
   return (
     <Suspense fallback={<p>Loading...</p>}>
