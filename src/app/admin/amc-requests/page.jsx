@@ -2,7 +2,7 @@
 
 import AdminRoute from "@/components/AdminRoute";
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
+import { db } from "@/firebase";
 import {
   collection,
   getDocs,
